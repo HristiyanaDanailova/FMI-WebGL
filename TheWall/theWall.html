@@ -1,0 +1,165 @@
+﻿<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8"/>
+	<title>The wall</title>
+
+	<script src="webgl-fmi.js"></script>	
+	
+	<script id="vshader" type="x-shader/x-vertex">
+		uniform mat4 uProjectionMatrix;
+		uniform mat4 uViewMatrix;
+		uniform mat4 uModelMatrix;
+		attribute vec3 aXYZ;
+		void main ()
+		{
+			gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aXYZ,1);
+			
+			
+		}
+	</script>
+	
+	<script id="fshader" type="x-shader/x-fragment">
+		precision mediump float;
+		uniform vec3 uColor;
+		void main( )
+		{
+			gl_FragColor = vec4(uColor,1);
+		}
+	</script>
+
+	<script>
+		function start( )
+		{
+			gl = getContext("picasso");
+			glprog = getProgram("vshader","fshader");
+			
+			aXYZ = gl.getAttribLocation(glprog,"aXYZ");
+			uColor = gl.getUniformLocation(glprog,"uColor");
+			uProjectionMatrix = gl.getUniformLocation(glprog,"uProjectionMatrix");
+			uViewMatrix = gl.getUniformLocation(glprog,"uViewMatrix");
+			uModelMatrix = gl.getUniformLocation(glprog,"uModelMatrix");
+
+			gl.clearColor(1,1,1,1);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			
+		
+			const proj = perspMatrix(30,gl.canvas.width/gl.canvas.height,1,40000);
+			gl.uniformMatrix4fv(uProjectionMatrix,false,proj);
+
+			
+			//const view = viewMatrix([0.5,0.2,0],[-0.50,0.48,0],[0,0,1]); // -> inner wall view
+			//const view = viewMatrix([1,-1.2,0.15], [0,  -0.7,0], [0,0,1]); // -> bottom of heart view
+			//const view = viewMatrix([1.4,-0.9,0.38],[0,0,0],[0,0,1]); // ->  right wall view
+			//const view = viewMatrix([0,0,3.5], [0, 0.2,-40], [0,0,1]); // -> skyview
+			const view = viewMatrix([2,-2,2.7], [0, 0,0], [0,0,1]); // -> above view
+			gl.uniformMatrix4fv(uViewMatrix,false,view);
+		
+
+			//brick
+			const data = [ 0.005,-0.008,0.005,	// front wall
+						 0.005,0.008,0.005,
+						-0.005,0.008,0.005,
+						-0.005,-0.008,0.005,
+						 0.005,-0.008,-0.005, // back wall
+						 0.005,0.008,-0.005,
+						-0.005,0.008,-0.005,
+						-0.005,-0.008,-0.005,
+						
+						 0.005,-0.008,0.005, // right horizontal edges
+						 0.005,-0.008,-0.005,
+						 0.005,0.008,0.005,
+						 0.005,0.008,-0.005,
+						-0.005,0.008,0.005,	// left horizontal edges
+						-0.005,0.008,-0.005,
+						-0.005,-0.008,0.005,
+						-0.005,-0.008,-0.005	
+						];
+			// the heart consists of a 2D contour and a 3D wall made of 20 rows of bricks			
+			const N = 100;
+			let points = [];
+			let r = 0.41;
+			let a = 0; 
+			let x = 0;
+			let y = 0;
+			// CONTOUR
+			// calculates the points of the circle, contouring the left upper half of the heart (fig1)
+			for(let i = 0; i < N;i++){
+				a = Math.PI*(6*i/N-1)/5.0;
+			    x = -0.28- (4/6*r*Math.cos(a));
+			    y =  +0.26 + r*Math.sin(a);
+				points.push(x,y,0);
+
+			}
+			// calculates the points of the circle, contouring the rightt upper half of the heart (fig2)
+			for(let i=20; i<N; i++) {
+				
+				 a = Math.PI*(6*i/N-1)/4.1;
+				 x = 0.28 - (4/6*r*Math.cos(a));
+				 y = 0.26 + r*Math.sin(a);
+				points.push(x,y,0);
+				
+			}
+			
+			 x = 0.4986433331354203;
+			y = 0.013953339852527918;
+			// calculates the points, connecting the right upper half of the heart with the "lowest" point of the heart (fig3)
+			for(let i = 0; i < 50;i++){
+				x -= 0.01;
+				y -= 0.016;
+				points.push(x,y,0);
+			}
+			// calculates the points, connecting the left upper half of the heart with the "lowest" point of the heart (fig4)
+			for(let i = 0; i < 50;i++){
+				x -= 0.01;
+				y += 0.016;
+				points.push(x,y,0);
+			}
+			
+			const buf = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+			// creates 20 rows of bricks, using the translation matrix
+			// based on the coordinates of the contour for every row, x and y get translated by +/-0.005 (variable m)
+			// n gets added to the z coordinate, "raising" the wall by 1 row
+			let n = 0;
+			let m = 0;
+			for(let k = 0; k < 20;k++){
+				if(k != 0){
+					n+=0.01
+				}
+				if(k != 0  && k %2 == 0){
+						m -= 0.005;
+					}else{
+						m += 0.005;
+					}
+				for(let i = 0; i < points.length;i+=3){
+					
+				let model = translateMatrix([points[i]+m,points[i+1]+m,points[i+2]+n]);
+				gl.uniformMatrix4fv(uModelMatrix,false,model);
+
+				gl.enableVertexAttribArray(aXYZ);
+				gl.uniform3f(uColor,166/355,18/255,18/255); // sets the colour to "brick-red"
+				gl.vertexAttribPointer(aXYZ,3,gl.FLOAT,false,0,0);
+				gl.drawArrays(gl.LINE_LOOP,0,4); // front wall
+				gl.drawArrays(gl.LINE_LOOP,4,4); // back wall
+				gl.vertexAttribPointer(aXYZ,3,gl.FLOAT,false,0,0);
+				gl.drawArrays(gl.LINES,8,8);
+			}
+			}
+		}	
+		
+	</script>	
+</head>
+
+<body onload="start()">
+	<h2>The Wall</h2>
+
+	<noscript>
+		Искаме JavaScript, но няма!
+	</noscript>
+	
+	<canvas id="picasso" width="600" height="400" style="border: solid;">
+		Искаме canvas, но няма!
+	</canvas>
+</body>

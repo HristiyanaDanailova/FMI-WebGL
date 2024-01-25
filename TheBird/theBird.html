@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8"/>
+	<title>The Bird</title>
+
+	<script src="webgl-fmi.js"></script>
+	<script src="shaders.js"></script>
+    <script src="bird.js"></script>
+	
+	<script>
+		function start( )
+		{
+			var	canvas = document.getElementById("picasso");
+			canvas.addEventListener('webglcontextlost',function(event){event.preventDefault();},false);
+			canvas.addEventListener('webglcontextrestored',function(){init();},false);
+
+			init();
+			drawFrame();
+		}
+		
+		function init()
+		{
+			gl = getContext("picasso");
+			glprog = getProgram(vShader,fShader);
+			getVariables();
+
+			gl.enable(gl.DEPTH_TEST);
+			gl.clearColor(0.8,0.9,1,1);
+
+			identity();
+			perspective(30,gl.canvas.width/gl.canvas.height,1,40000);
+			gl.uniform1i(uUseNormalMatrix,false);
+
+			gl.uniform3f(uAmbientColor,0.3,0.3,0.3);
+			gl.uniform3f(uDiffuseColor,1,1,1);
+			gl.uniform3f(uLightDir,0,0,-1);
+
+			
+            bird = new Bird();
+		}
+
+		var time = now();
+		function now() { return (new Date()).getTime()/1000; }
+		
+		function drawFrame()
+		{	
+
+			time = now();
+			gl.clear(gl.COLOR_BUFFER_BIT+gl.DEPTH_BUFFER_BIT);
+			
+			lookAt([8*cos(time/5),8*sin(time/5),1],[0,0,0],[0,0,1]);
+           
+			var t = 2.5*time;
+			var q = t+PI;
+
+			bird.head.rot = [0,0,15*sin(t),0];
+			bird.body.rot = [0,0,35*Math.sin(t+5),0];
+			for(var i = 0;i<10;i++){
+                bird.leftWing[i].rot = [10*Math.cos(t + 2),i/10, 10*Math.sin(q+2), i];
+                bird.rightWing[i].rot = [10*Math.cos(t + 11),i/10, 10*Math.sin(q+6.3), i];
+            }
+			
+			bird.draw();
+            
+			requestAnimationFrame(drawFrame);
+		}
+	</script>	
+</head>
+
+<body onload="start()">
+	<h2>The Bird</h2>
+	<noscript>
+		Искаме JavaScript, но няма!
+	</noscript>
+	
+	<canvas id="picasso" width="600" height="400" style="border: solid;">
+		Искаме canvas, но няма!
+	</canvas>
+</body>

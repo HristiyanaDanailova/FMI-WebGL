@@ -1,0 +1,133 @@
+﻿<!DOCTYPE html>
+
+<head>
+	<meta charset="utf-8"/>
+	<title>The Rug</title>
+
+	<script src="webgl-fmi.js"></script>	
+	
+	<script id="vshader" type="x-shader/x-vertex">
+		attribute vec2 aXY;
+		attribute vec3 aRGB;
+		varying vec3 vRGB;
+		void main ()
+		{
+			gl_Position = vec4(aXY,0,1);
+			gl_PointSize = 4.0;
+			vRGB = aRGB;
+		}
+	</script>
+	
+	<script id="fshader" type="x-shader/x-fragment">
+		precision mediump float;
+		varying vec3 vRGB;
+		void main( )
+		{
+			gl_FragColor = vec4(vRGB,1);
+		}
+	</script>
+
+	<script>
+		// wave equation used in the solution : y(x,t) = A*cos(kx - wt + f)
+		// x and y get swaped, so the orientation of the wave becomes vertical
+		// the function "wave" generates the colourful part of a wave and its right contour as well as the white space and left contour of the next wave
+		freq1 =  random(2,20); ampl1 = random(0.012,0.082);
+		function wave(dist){
+			let data = [];
+			let ampl2 = random(0.012,0.052);
+			let freq2 = random(2,20);
+			let y  = 1;
+			let x = 0;
+			let col = randomCol();
+			for(let i = 0;i < 200;i++){
+					x = Math.sin(y*freq1)*ampl1;
+					data.push(x-dist,y);
+					data.push(col[0],col[1],col[2]);
+				    x = Math.sin(y*freq2)*ampl2;
+					data.push(x+0.2-dist,y);
+					data.push(col[0],col[1],col[2]);
+					y-=0.05;
+			}
+			y = 1;
+			for(let i = 0; i < 200;i++){
+				x = Math.sin(y*freq2)*ampl2;
+				data.push(x+0.2-dist,y,0,0,0);
+				y-=0.05;
+			}
+			y=1;
+			for(let i = 0; i < 200;i++){
+				x = Math.sin(y*freq2)*ampl2;
+				data.push(x-dist+0.23,y,0,0,0);
+				y-=0.05;
+			}
+            freq1 = freq2;
+            ampl1 = ampl2;
+			return data;
+			
+		}
+		// generates a random pastel colour
+		function randomCol(){
+			return [random(0.6,1),random(0.6,1),random(0.6,1)];
+		}
+		const merge = (first, second) => {
+		for(let i=0; i<second.length; i++) {
+			first.push(second[i]);
+		}
+		return first;
+		}
+		// generates 11 waves,each with identation of "dist"
+		function start( )
+		{
+			gl = getContext("picasso");
+			glprog = getProgram("vshader","fshader");
+
+			aXY = gl.getAttribLocation(glprog,"aXY");
+			aRGB = gl.getAttribLocation(glprog,"aRGB");
+			
+			gl.clearColor(1,1,1,1);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+
+			
+			// m - number of strips
+			const m = 11;
+			let data = [];
+			let dist = 1.2;
+			for(let i = 0; i < m;i++){
+				merge(data,wave(dist));
+                dist-=0.234;
+			}
+			let vBuf = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER,vBuf);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data),gl.STATIC_DRAW);	
+			
+			gl.enableVertexAttribArray(aXY);
+			gl.vertexAttribPointer(aXY,2,gl.FLOAT,false,5*FLOATS,0*FLOATS);
+
+			gl.enableVertexAttribArray(aRGB);
+			gl.vertexAttribPointer(aRGB,3,gl.FLOAT,false,5*FLOATS,2*FLOATS);
+			
+			// s - index to start readion from
+			// draws a wave and 2 black contours
+			let s = 0;
+			for(let i = 0; i < m;i++){
+				gl.drawArrays(gl.TRIANGLE_STRIP,s,400);
+				gl.drawArrays(gl.LINE_STRIP,s+400,200);
+				gl.drawArrays(gl.LINE_STRIP,s+600,200);
+				s+=800;
+			}
+		}
+	</script>	
+</head>
+
+<body onload="start()">
+	<h2>The Rug</h2>
+
+	<noscript>
+		Искаме JavaScript, но няма!
+	</noscript>
+	
+	<canvas id="picasso" width="600" height="400" style="border: solid;">
+		Искаме canvas, но няма!
+	</canvas>
+</body>
+
